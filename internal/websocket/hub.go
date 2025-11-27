@@ -65,3 +65,16 @@ func (h *HUB) RUN() {
 
 	}
 }
+
+func (h *HUB) GetConnectedUsers() []IdentifyPayload {
+	users := []IdentifyPayload{}
+	for client := range h.Clients {
+		if h.Clients[client] && client.UserID != "" {
+			users = append(users, IdentifyPayload{
+				User: client.UserID,
+			})
+		}
+	}
+
+	return users
+}

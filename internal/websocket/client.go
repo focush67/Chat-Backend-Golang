@@ -59,13 +59,30 @@ func (c *Client) ReadPump() {
 			c.UserID = payload.User
 			log.Println("User identified as:", c.UserID)
 
+		case "user_list":
+			var payload []IdentifyPayload
+			if err := json.Unmarshal(msg.Data, &payload); err != nil {
+				log.Println("Invalid user_list payload", err)
+				continue
+			}
+			response := struct {
+				Type string            `json:"type"`
+				Data []IdentifyPayload `json:"data"`
+			}{
+				Type: "user_list",
+				Data: c.Hub.GetConnectedUsers(),
+			}
+
+			b, _ := json.Marshal(response)
+			c.Send <- b
+
 		case "chat_message":
 			var payload ChatMessage
 			if err := json.Unmarshal(msg.Data, &payload); err != nil {
 				log.Println("Invalid chat_message payload", err)
 				continue
 			}
-
+			log.Println("Got this raw message", rawMsg)
 			c.Hub.Broadcast <- rawMsg
 
 		case "private_message":

@@ -74,5 +74,17 @@ type TypingPayload struct {
 */
 
 type IdentifyPayload struct {
-	User string `json:"string"`
+	User string `json:"user"`
+}
+
+/*
+	ConnectedUsers is used to give out a list of all connected users
+	{
+		type:"user_list",
+		"data":[{"user":"sparsh"},{"user":"priyanshu"}]
+	}
+*/
+
+type ConnectedUsers struct {
+	Data []IdentifyPayload `json:"data"`
 }
