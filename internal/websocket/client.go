@@ -1,22 +1,25 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/gorilla/websocket"
 )
 
 /*
-	Client represents a single WebSocket user connected to the server. It contains:
-		1. hub: pointer to the HUB (so it can broadcast messages)
-		2. conn: the actual WebSocket connection
-		3. send: a channel where outgoing messages are queued
+	Client now supports structured messages with a Type and Data field.
+	We parse the incoming JSON, switch on Message.Type, and send
+	the structured commands to the Hub.
 */
 
 type Client struct {
 	Hub  *HUB
 	Conn *websocket.Conn
 	Send chan []byte
+
+	// Will be set after "identify" message
+	UserID string
 }
 
 /*
@@ -34,13 +37,56 @@ func (c *Client) ReadPump() {
 	}()
 
 	for {
-		_, msg, err := c.Conn.ReadMessage()
+		_, rawMsg, err := c.Conn.ReadMessage()
 		if err != nil {
 			log.Println("readPump error:", err)
 			break
 		}
-		// Send received message into HUB broadcast channel
-		c.Hub.Broadcast <- msg
+		//  Parse outer message wrapper: { "type": "...", "data": { ... } }
+		var msg Message
+		if err := json.Unmarshal(rawMsg, &msg); err != nil {
+			log.Println("Invalid JSON from client", err)
+			continue
+		}
+
+		switch msg.Type {
+		case "identify":
+			var payload IdentifyPayload
+			if err := json.Unmarshal(msg.Data, &payload); err != nil {
+				log.Println("Invalid identify payload", err)
+				continue
+			}
+			c.UserID = payload.User
+			log.Println("User identified as:", c.UserID)
+
+		case "chat_message":
+			var payload ChatMessage
+			if err := json.Unmarshal(msg.Data, &payload); err != nil {
+				log.Println("Invalid chat_message payload", err)
+				continue
+			}
+
+			c.Hub.Broadcast <- rawMsg
+
+		case "private_message":
+			var payload PrivateMessage
+			if err := json.Unmarshal(msg.Data, &payload); err != nil {
+				log.Println("Invalid private_nessaage payload", err)
+				continue
+			}
+			c.Hub.Broadcast <- rawMsg
+
+		case "join_room":
+			var payload JoinRoomPayload
+			if err := json.Unmarshal(msg.Data, &payload); err != nil {
+				log.Println("Invalid join_room payload", err)
+				continue
+			}
+			// Room Logic will be implemented here
+
+		default:
+			log.Println("Unknown message type", msg.Type)
+		}
 	}
 }
 
